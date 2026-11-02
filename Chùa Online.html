@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="utf-8"><title>Chùa Online</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{--bg:#fbf4e4;--card:#fffaf0;--tx:#3b2a1a;--ac:#b4561b;--bd:#e3d3b0;--hall:#6b2d12;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1d1610;--card:#2a2016;--tx:#f1e6d0;--ac:#e08a4a;--bd:#4a3a26;--hall:#3a1a0b}}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--tx);font-family:Georgia,'Times New Roman',serif}
+.w{max-width:640px;margin:0 auto;padding:16px}h1{font-size:24px;margin:8px 0}
+.c{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;margin:12px 0}
+input,select,button{font:inherit;padding:10px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);width:100%;margin:6px 0}
+button{background:var(--ac);color:#fff;border:0;cursor:pointer}button.s{background:var(--card);color:var(--tx);border:1px solid var(--bd)}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:8px}.g button{margin:0}
+.hall{background:linear-gradient(var(--hall),#2a1206);border-radius:14px;padding:12px;color:#fff;min-height:230px;position:relative;text-align:center}
+.altar{font-size:44px}.smoke{position:absolute;left:50%;top:44px;font-size:22px;opacity:0;transition:opacity 1s}.smoke.on{opacity:.8;animation:u 3s infinite}
+@keyframes u{0%{transform:translate(-50%,0)}100%{transform:translate(-50%,-26px);opacity:0}}
+.ppl{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:30px}
+.p{font-size:11px;background:#0003;border-radius:10px;padding:6px;min-width:64px}.p b{display:block;font-size:26px}.p.me{outline:2px solid #f5c26b}.p.say b{animation:b .5s infinite alternate}
+@keyframes b{to{transform:translateY(-5px)}}
+#log{height:130px;overflow:auto;font-size:14px;line-height:1.5}small{opacity:.7}
+</style></head><body><div class="w">
+<h1>🪷 Chùa Online</h1>
+<div id="login" class="c">
+<small>Đăng nhập bằng pháp danh để vào chùa tu tập cùng đại chúng.</small>
+<input id="pd" placeholder="Pháp danh (vd: Diệu Minh)" maxlength="24">
+<select id="role"><option value="phat-tu">🙏 Phật tử</option><option value="ni-co">👩‍🦲 Ni cô</option><option value="su-thay">🧘 Sư thầy</option><option value="tru-tri">👑 Trụ trì</option></select>
+<select id="chua"><option>Chùa Từ Bi</option><option>Chùa Giác Ngộ</option><option>Chùa Hoa Sen</option><option>Chùa Bồ Đề</option><option>Chùa Pháp Vân</option></select>
+<button id="go">Vào chùa</button></div>
+<div id="temple" hidden>
+<div class="hall"><div id="tn" style="font-weight:bold"></div><div class="altar">🛕</div><div class="smoke" id="sm">♨</div><div class="ppl" id="ppl"></div></div>
+<div class="c"><div class="g">
+<button id="hu">🕯 Thắp hương</button><button class="s" id="mo">🪵 Gõ mõ</button>
+<button class="s" id="ch">🔔 Thỉnh chuông</button><button id="ki">📿 Tụng kinh</button></div>
+<small id="hint"></small></div>
+<div class="c"><div id="log"></div><input id="msg" placeholder="Lời nguyện / A Di Đà Phật..." maxlength="80"><button class="s" id="send">Gửi</button></div>
+<button class="s" id="out">Rời chùa</button></div>
+</div>
+<script>
+const $=id=>document.getElementById(id),ROLE={'phat-tu':['🙏','Phật tử'],'ni-co':['👩‍🦲','Ni cô'],'su-thay':['🧘','Sư thầy'],'tru-tri':['👑','Trụ trì']};
+let AC,room,me,peers={},chanting=null,myId='me'+Math.random().toString(36).slice(2,7);
+const ctx=()=>AC||(AC=new (window.AudioContext||window.webkitAudioContext)());
+function tone(f,d,type,g,dec){const a=ctx(),o=a.createOscillator(),v=a.createGain();o.type=type;o.frequency.setValueAtTime(f,a.currentTime);o.frequency.exponentialRampToValueAtTime(f*(dec||.6),a.currentTime+d);v.gain.setValueAtTime(g,a.currentTime);v.gain.exponentialRampToValueAtTime(.001,a.currentTime+d);o.connect(v).connect(a.destination);o.start();o.stop(a.currentTime+d)}
+const mo=()=>{tone(420,.12,'triangle',.7,.7);tone(840,.05,'square',.15,.5)};
+const chuong=()=>{[220,440,661,880].forEach((f,i)=>tone(f,4,'sine',.25/(i+1),.995))};
+function log(t){const l=$('log');l.insertAdjacentHTML('beforeend','<div>'+t+'</div>');l.scrollTop=1e9}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const npc=[['Diệu Hoa','phat-tu'],['Tịnh Liên','ni-co'],['Minh Đức','phat-tu']];
+function draw(say){const all=[{id:myId,n:me.n,r:me.r,me:1},...Object.entries(peers).map(([i,p])=>({id:i,...p})),...(Object.keys(peers).length?[]:npc.map(([n,r],i)=>({id:'n'+i,n,r})))];
+ $('ppl').innerHTML=all.map(p=>`<div class="p ${p.me?'me':''} ${say?'say':''}"><b>${ROLE[p.r][0]}</b>${esc(p.n)}<br><small>${ROLE[p.r][1]}</small></div>`).join('')}
+function hu(){$('sm').classList.add('on');setTimeout(()=>$('sm').classList.remove('on'),9000);log('🕯 Bạn thắp một nén hương.')}
+function startChant(by){stopChant();let n=0;log('📿 '+esc(by)+' khai kinh. Đại chúng cùng tụng.');draw(1);
+ const lines=['Nam mô A Di Đà Phật','Quán Tự Tại Bồ Tát, hành thâm Bát Nhã Ba La Mật Đa','Chiếu kiến ngũ uẩn giai không','Độ nhất thiết khổ ách'];
+ chanting=setInterval(()=>{mo();if(n%4==0){const s=lines[(n/4)%lines.length|0];log('<small>'+s+'</small>');
+  try{if(window.speechSynthesis&&$('ki').dataset.v){const u=new SpeechSynthesisUtterance(s);u.lang='vi-VN';u.rate=.7;u.pitch=.6;speechSynthesis.speak(u)}}catch(e){}}n++},900)}
+function stopChant(){clearInterval(chanting);chanting=null;draw(0);try{speechSynthesis.cancel()}catch(e){}}
+function send(t,d){try{room&&room.emit(t,Object.assign({from:me.n},d||{}))}catch(e){}}
+$('go').onclick=async()=>{const n=$('pd').value.trim();if(!n)return $('pd').focus();
+ me={n,r:$('role').value,t:$('chua').value};ctx();$('login').hidden=true;$('temple').hidden=false;$('tn').textContent=me.t;
+ $('hint').textContent=me.r=='tru-tri'?'Trụ trì: bấm "Tụng kinh" để khai kinh cho cả chùa.':'Chờ Trụ trì khai kinh, hoặc tự gõ mõ, thắp hương.';
+ log('Bạn bước vào '+esc(me.t)+' với pháp danh <b>'+esc(n)+'</b>. A Di Đà Phật 🙏');draw(0);
+ try{const R=await claude.use('room');if(R){room=await R.join(me.t);room.presence({n:me.n,r:me.r});
+  room.onPeers(ps=>{peers={};(Array.isArray(ps)?ps:Object.values(ps||{})).forEach((p,i)=>{const s=p.state||p;if(s&&s.n&&!(s.n==me.n&&s.r==me.r&&p.you))peers['p'+i]=s});draw(!!chanting)});
+  room.on('mo',e=>{mo()});room.on('hu',e=>log('🕯 '+esc(e.data?.from||e.from||'Phật tử')+' thắp hương.'));room.on('chuong',e=>chuong());
+  room.on('say',e=>log('💬 <b>'+esc(e.data?.from||'')+'</b>: '+esc(e.data?.t||'')));
+  room.on('chant',e=>{startChant(e.data?.from||'Trụ trì')});room.on('stop',e=>stopChant());
+  log('<small>Đã kết nối đại chúng trong chùa.</small>')}}catch(e){log('<small>Chế độ một mình (chưa kết nối đại chúng).</small>')}};
+$('hu').onclick=()=>{hu();send('hu')};$('mo').onclick=()=>{mo();send('mo')};$('ch').onclick=()=>{chuong();send('chuong');log('🔔 Chuông ngân vang.')};
+$('ki').onclick=()=>{$('ki').dataset.v='1';if(chanting){stopChant();send('stop');$('ki').textContent='📿 Tụng kinh'}else{startChant(me.n);send('chant');$('ki').textContent='⏹ Dừng kinh'}};
+$('send').onclick=()=>{const t=$('msg').value.trim();if(!t)return;log('💬 <b>'+esc(me.n)+'</b>: '+esc(t));send('say',{t});$('msg').value=''};
+$('out').onclick=()=>{stopChant();try{room&&room.leave()}catch(e){}room=null;$('temple').hidden=true;$('login').hidden=false;$('log').innerHTML=''};
+</script></body></html>
